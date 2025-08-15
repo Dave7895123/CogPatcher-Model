@@ -48,21 +48,19 @@ Make sure you have the following software installed on your system:
 
 You are now ready to run the simulations! Please see the [Usage](#usage) section for instructions on how to run the model.
 
-Usage
-This project contains two main experiments that should be run sequentially. First, the CogPatcher simulation is run to generate the experiential data. Second, the Associative-Learner script is run to train the control model on that data and reproduce the paper's key findings.
+## Usage
 
-Bash
+This project contains two main experiments that should be run sequentially. First, the `CogPatcher` simulation is run to generate the experiential data. Second, the `Associative-Learner` script is run to train the control model on that data and reproduce the paper's key findings.
 
-pip install pybullet numpy pandas scikit-learn
-Running the Experiment
+### Running the Experiment
+
 Follow these steps in your terminal from the project's root directory.
 
-Step 1: Run the CogPatcher Simulation
+**Step 1: Run the CogPatcher Simulation**
 
-This step runs the main simulation for the CogPatcher model. The simulation will run for the number of steps specified in main.py (e.g., 100,000 steps) and will generate the agent_experience_log.csv file, which records all key events.
+This step runs the main simulation for the `CogPatcher` model. The simulation will run for the number of steps specified in `main.py` (e.g., 100,000 steps) and will generate the `agent_experience_log.csv` file, which records all key events.
 
-Bash
-
+```bash
 python main.py
 Note: This simulation may take several minutes to complete. As the agent_experience_log.csv file is already included in this repository, you may skip this step if you only wish to re-run the analysis on the existing data.
 
