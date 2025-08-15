@@ -60,18 +60,19 @@ Follow these steps in your terminal from the project's root directory.
 
 This step runs the main simulation for the `CogPatcher` model. The simulation will run for the number of steps specified in `main.py` (e.g., 100,000 steps) and will generate the `agent_experience_log.csv` file, which records all key events.
 
-````bash
+```bash
 python main.py
 Note: This simulation may take several minutes to complete. As the agent_experience_log.csv file is already included in this repository, you may skip this step if you only wish to re-run the analysis on the existing data.
+```
 
 Step 2: Train and Evaluate the Associative-Learner
 
 This script trains the neural network (our Associative-Learner control model) on the data generated in Step 1 and evaluates its performance on the B-trials. It will print the final analysis, including the model's prediction and confidence for the critical A-non-B task, directly to the console.
 
-Bash
-
+```Bash
 python Associative-Learner.py
 The output of this script contains the quantitative results used in the paper to demonstrate the mechanistic differences between the two models.
+```
 
 License
 This project is licensed under the MIT License. See the accompanying LICENSE file for the full text.
