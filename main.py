@@ -1,11 +1,13 @@
 # --- START OF FILE main.py (REVISED LOOP LOGIC) ---
 
 import pybullet as p
+import pybullet_data
 import time
 import copy
 import math
+import csv
 
-
+# 导入所有模块类
 from physics_world import PhysicsWorld
 from sensor import Sensor
 from event_segmenter import EventSegmenter
@@ -23,13 +25,13 @@ SIMULATION_TIME_STEP = 1 / 60.0
 ROTATION_SPEED_DEG_PER_SEC = 45
 
 ROTATION_SPEED_RAD_PER_SEC = math.radians(ROTATION_SPEED_DEG_PER_SEC)
-TOTAL_SIMULATION_STEPS = 100000
+TOTAL_SIMULATION_STEPS = 10000
 PREDICTION_START_STEP_THRESHOLD = 20000
-episodic_memory_IDLE_THRESHOLD_SEC = 10.0
+episodic_memory_IDLE_THRESHOLD_SEC = 19.0
 
 
 class ConflictResolutionModulePlaceholder:  # (Placeholder as before)
-    def handle_prediction_conflict(self, predicted_event_at_diff, actual_event_at_diff, 
+    def handle_prediction_conflict(self, predicted_event_at_diff, actual_event_at_diff,
                                    violated_rule_ids, reason_for_conflict):
         print("\n--- [Placeholder] ConflictResolutionModule ---")
         print(f"  Conflict Detected: {reason_for_conflict}")
@@ -42,6 +44,14 @@ class ConflictResolutionModulePlaceholder:  # (Placeholder as before)
 
 
 if __name__ == "__main__":
+
+    log_file = open('agent_experience_log.csv', 'w', newline='')
+    log_writer = csv.writer(log_file)
+    log_writer.writerow(
+        ['sim_step', 'is_in_A_zone', 'is_in_B_zone', 'is_occluded', 'chosen_action_label', 'correct_action_label'])
+
+
+    previous_log_state = {'in_A': False, 'in_B': False, 'occluded': False}
 
     physics_world = PhysicsWorld(gui=True)
     sensor = Sensor(physics_world)
@@ -87,42 +97,82 @@ if __name__ == "__main__":
     global_simulation_step_count = 0
 
 
-
     try:
         for step_count in range(TOTAL_SIMULATION_STEPS):
             global_simulation_step_count = step_count
-
             physics_world.step()
 
             sensor_data = sensor.get_data()
             sensor_events = event_segmenter.process(sensor_data)
 
+
+            if global_simulation_step_count >= sensor.OCCLUSION_A_START_STEP:
+                ball_pos, _ = p.getBasePositionAndOrientation(sensor.ball_id)
+                current_angle_deg = sensor._get_angle(ball_pos)
+
+
+                current_state = {
+                    'in_A': sensor.OCCLUSION_A_START_ANGLE <= current_angle_deg < sensor.OCCLUSION_A_END_ANGLE,
+                    'in_B': sensor.OCCLUSION_B_START_ANGLE <= current_angle_deg < sensor.OCCLUSION_B_END_ANGLE,
+                    'occluded': sensor._is_in_occlusion_zone(current_angle_deg)
+                }
+
+
+                if current_state['in_A'] != previous_log_state['in_A'] or \
+                        current_state['in_B'] != previous_log_state['in_B']:
+
+
+                    correct_action_label = -1
+                    chosen_action_label = -1
+
+
+                    if sensor.OCCLUSION_A_START_STEP <= global_simulation_step_count < sensor.OCCLUSION_B_START_STEP:
+                        if current_state['in_A']:  # 只在进入A区时记录
+                            correct_action_label = 0
+                            chosen_action_label = 0
+
+
+                    elif global_simulation_step_count >= sensor.OCCLUSION_B_START_STEP:
+                        if current_state['in_B']:  # 只在进入B区时记录
+                            correct_action_label = 1
+                            if current_state['occluded']:
+                                chosen_action_label = 0  # 固执行为
+                            else:
+                                chosen_action_label = 1
+
+
+                    if correct_action_label != -1:
+                        log_writer.writerow([
+                            global_simulation_step_count,
+                            1 if current_state['in_A'] else 0,
+                            1 if current_state['in_B'] else 0,
+                            1 if current_state['occluded'] else 0,
+                            chosen_action_label,
+                            correct_action_label
+                        ])
+
+
+                previous_log_state = current_state
+
+
             instance_stored_this_step = episodic_memory.check_and_store_episode(global_simulation_step_count)
 
-
             command_events_this_step = []
-
             current_sim_time_for_commands = perception.current_sim_time
 
             if instance_stored_this_step:
                 if not action_system.is_instance_active():
-
-                    print(
-                        f"Main: AS is inactive, attempting to start a new episode (could be regular or reflexive). SimStep: {global_simulation_step_count}")
                     cmd_evts = action_system.start_new_instance(current_sim_time_for_commands)
                     command_events_this_step.extend(cmd_evts)
                     if cmd_evts and action_system.is_instance_active():
                         initial_velocity = ROTATION_SPEED_RAD_PER_SEC * action_system.current_rotation_direction
                         physics_world.set_arm_velocity(initial_velocity)
 
-
             elif action_system.is_instance_active():
-
-
-
                 cmd_evts = action_system.check_and_generate_type2_command(current_sim_time_for_commands)
-
                 command_events_this_step.extend(cmd_evts)
+
+
 
 
             all_step_events = sensor_events + command_events_this_step
@@ -138,63 +188,34 @@ if __name__ == "__main__":
                     elif p_event.get('seq') < current_perception_seq_num:
                         break
                 newly_sequenced_events_this_step.reverse()
-
-
             if prediction_module.is_active and not prediction_module.initial_events_processed:
                 if perception.events:
                     min_seq_in_perception = min(
                         ev.get('seq') for ev in perception.events if isinstance(ev.get('seq'), int))
-
                     if prediction_module.last_processed_event_internal_idx == -1:
                         initial_events_for_pm = [ev for ev in perception.events if
                                                  ev.get('seq') == min_seq_in_perception]
                         if initial_events_for_pm:
-                            print(
-                                f"Main: Initial events for the episode detected (Perception Seq: {min_seq_in_perception}), passing to PredictionModule for processing...")
                             prediction_module.process_initial_events(initial_events_for_pm)
-
-
-
             for p_event in newly_sequenced_events_this_step:
                 if p_event.get("category") == "command":
                     if prediction_module.is_active:
-                        print(f"Main: New command perceived (Seq: {p_event.get('seq')}), PredictionModule is active, processing...")
                         cmd_event_for_pm = copy.deepcopy(p_event)
                         if 'current_instance_seq' not in cmd_event_for_pm:
                             cmd_event_for_pm['current_instance_seq'] = cmd_event_for_pm.get('seq')
-
                         prediction_module.process_new_command_event_from_perception(cmd_event_for_pm)
+            if prediction_module.is_active and prediction_module.initial_events_processed and not prediction_module.paused_due_to_conflict and not prediction_module.paused_waiting_for_command:
+                can_continue_predicting = True
+                max_predict_in_step = 5
+                predict_count_this_step = 0
+                while can_continue_predicting and predict_count_this_step < max_predict_in_step:
+                    if not prediction_module.is_active or not prediction_module.initial_events_processed or prediction_module.paused_due_to_conflict or prediction_module.paused_waiting_for_command:
+                        break
+                    processed_something = prediction_module.check_and_predict_next_event()
+                    if not processed_something or prediction_module.paused_waiting_for_command:
+                        can_continue_predicting = False
+                    predict_count_this_step += 1
 
-
-
-                if prediction_module.is_active and \
-                        prediction_module.initial_events_processed and \
-                        not prediction_module.paused_due_to_conflict and \
-                        not prediction_module.paused_waiting_for_command:
-
-                    can_continue_predicting = True
-                    max_predict_in_step = 5
-                    predict_count_this_step = 0
-                    while can_continue_predicting and predict_count_this_step < max_predict_in_step:
-                        if not prediction_module.is_active or \
-                                not prediction_module.initial_events_processed or \
-                                prediction_module.paused_due_to_conflict or \
-                                prediction_module.paused_waiting_for_command:
-                            can_continue_predicting = False
-                            break
-
-                        processed_something = prediction_module.check_and_predict_next_event()
-                        if not processed_something:
-                            can_continue_predicting = False
-
-
-                        if prediction_module.paused_waiting_for_command:
-                            print("Main: PM is paused waiting for a command, stopping this drive cycle.")
-                            can_continue_predicting = False
-
-                        predict_count_this_step += 1
-                    if predict_count_this_step >= max_predict_in_step:
-                        print(f"Main_Warning: Prediction count per step reached the limit of {max_predict_in_step}.")
 
 
             collision_detected_this_step = False
@@ -208,7 +229,6 @@ if __name__ == "__main__":
 
 
             episodic_memory.update(sensor_events)
-
 
             time.sleep(SIMULATION_TIME_STEP)
 
@@ -259,3 +279,4 @@ if __name__ == "__main__":
             p.disconnect()
         print("\nProgram finished.")
 
+# --- END OF FILE main.py (REVISED LOOP LOGIC) ---
