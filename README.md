@@ -18,10 +18,9 @@ Make sure you have the following software installed on your system:
 
     Open your terminal or command prompt and clone this repository to your local machine:
     ```bash
-    git clone [https://github.com/](https://github.com/)[Your-Username]/[Your-Repository-Name].git
-    cd [Your-Repository-Name]
+    git clone [https://github.com/](https://github.com/)Dave7895123/CogPatcher-Model/.git
+    cd CogPatcher-Model
     ```
-    *(Replace `[Your-Username]` and `[Your-Repository-Name]` with your actual GitHub username and repository name.)*
 
 2.  **Create and Activate a Virtual Environment (Highly Recommended)**
 
