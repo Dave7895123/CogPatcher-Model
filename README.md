@@ -18,7 +18,7 @@ Make sure you have the following software installed on your system:
 
     Open your terminal or command prompt and clone this repository to your local machine:
     ```bash
-    git clone [https://github.com/](https://github.com/)Dave7895123/CogPatcher-Model/.git
+    git clone https://github.com/Dave7895123/CogPatcher-Model.git
     cd CogPatcher-Model
     ```
 
