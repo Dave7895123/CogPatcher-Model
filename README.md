@@ -74,5 +74,5 @@ python Associative-Learner.py
 The output of this script contains the quantitative results used in the paper to demonstrate the mechanistic differences between the two models.
 ```
 
-License
+### License
 This project is licensed under the MIT License. See the accompanying LICENSE file for the full text.
